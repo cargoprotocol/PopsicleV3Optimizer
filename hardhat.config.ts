@@ -11,6 +11,9 @@ task("accounts", "Prints the list of accounts", async (args, hre) => {
   }
 });
 
+const INFURA_API_KEY = "";
+const PRIVATE_KEY = ""; 
+
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
@@ -18,6 +21,12 @@ export default {
   networks: {
     hardhat: {
       allowUnlimitedContractSize: true,
+    },
+    rinkeby: {
+      chainId: 4,
+      url: `https://rinkeby.infura.io/v3/${INFURA_API_KEY}`,
+      accounts: [`0x${PRIVATE_KEY}`],
+      saveDeployments: true,
     },
   },
   solidity: "0.7.6",
