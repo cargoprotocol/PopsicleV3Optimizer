@@ -2,6 +2,7 @@ import { task } from "hardhat/config";
 import "@nomiclabs/hardhat-waffle";
 import '@typechain/hardhat'
 import '@nomiclabs/hardhat-ethers'
+import "hardhat-contract-sizer";
 
 task("accounts", "Prints the list of accounts", async (args, hre) => {
   const accounts = await hre.ethers.getSigners();
