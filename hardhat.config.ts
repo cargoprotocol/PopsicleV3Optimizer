@@ -4,6 +4,11 @@ import '@typechain/hardhat'
 import '@nomiclabs/hardhat-ethers'
 import "hardhat-contract-sizer";
 
+import * as dotenv from "dotenv";
+dotenv.config({ path: __dirname + "/.env" });
+const ALCHEMY_ID = process.env.ALCHEMY_ID;
+const DEPLOYER_PK = process.env.DEPLOYER_PK;
+
 task("accounts", "Prints the list of accounts", async (args, hre) => {
   const accounts = await hre.ethers.getSigners();
 
@@ -16,9 +21,20 @@ task("accounts", "Prints the list of accounts", async (args, hre) => {
  * @type import('hardhat/config').HardhatUserConfig
  */
 export default {
+  defaultNetwork: "hardhat",
+
   networks: {
     hardhat: {
+      chainId: 1337,
       allowUnlimitedContractSize: true,
+      forking: {
+        url: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_ID}`,
+      },
+    },
+    rinkeby: {
+      accounts: DEPLOYER_PK ? [DEPLOYER_PK] : [],
+      chainId: 4,
+      url: `https://eth-rinkeby.alchemyapi.io/v2/${ALCHEMY_ID}`,
     },
   },
   solidity: {
