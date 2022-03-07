@@ -17,9 +17,6 @@ task("accounts", "Prints the list of accounts", async (args, hre) => {
   }
 });
 
-const INFURA_API_KEY = "";
-const PRIVATE_KEY = ""; 
-
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
@@ -38,12 +35,6 @@ export default {
       accounts: DEPLOYER_PK ? [DEPLOYER_PK] : [],
       chainId: 4,
       url: `https://eth-rinkeby.alchemyapi.io/v2/${ALCHEMY_ID}`,
-    },
-    rinkeby: {
-      chainId: 4,
-      url: `https://rinkeby.infura.io/v3/${INFURA_API_KEY}`,
-      accounts: [`0x${PRIVATE_KEY}`],
-      saveDeployments: true,
     },
   },
   solidity: {
