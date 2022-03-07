@@ -1,3 +1,5 @@
+.env
+
 .vscode/
 ./libraries/PriceMath.sol
 
