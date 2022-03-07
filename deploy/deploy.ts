@@ -67,16 +67,24 @@ async function createUniswapPool() {
 }
 
 async function main() {
-  const poolAddress = await createUniswapPool();
+  // const poolAddress = await createUniswapPool();
 
   const strategyFactory = await ethers.getContractFactory(OPTIMIZER_STRATEGY_PATH);
   const strategy = await strategyFactory.deploy(100, 40, 16, 2000, constants.MaxUint256) as OptimizerStrategy;
   console.log(`strategy.address=${strategy.address}`);
 
-  const optimizerFactory = await ethers.getContractFactory(POPSICLE_V3_OPTIMIZER_PATH);
-  const optimizerContract = (await optimizerFactory.deploy(poolAddress, strategy.address)) as PopsicleV3Optimizer;
-  await optimizerContract.init();
-  console.log(`optimizerContract.address=${optimizerContract.address}`)
+  const uniswapPoolsRinkeby = [
+    "0x0f04024bdA15F6e5D48Ed92938654a6449F483ed", // WETH/DAI
+    "0xfbDc20aEFB98a2dD3842023f21D17004eAefbe68", // usdc/weth
+    "0x74D15a18796607EEE439C2259C09a5D6D051Ef87" // usdc/dai
+  ];
+  for (let i = 0; i < uniswapPoolsRinkeby.length; i++) {
+    console.log(`Deploying popsicle to uniswap pool ${uniswapPoolsRinkeby[i]}`);
+    const optimizerFactory = await ethers.getContractFactory(POPSICLE_V3_OPTIMIZER_PATH);
+    const optimizerContract = (await optimizerFactory.deploy(uniswapPoolsRinkeby[i], strategy.address)) as PopsicleV3Optimizer;
+    await optimizerContract.init();
+    console.log(`Popsicle pool deployed to ${optimizerContract.address}`);
+  }
 }
 
 main()
