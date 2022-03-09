@@ -26,8 +26,10 @@ export async function logPopsicleV3OptimizerState (address: string) {
 
   const slot0 = await pool.slot0();
   console.log(`slot0=${slot0}`);
-  const tx = await pool.mint(address, tickLower, tickUpper, 1, [], { gasLimit: 1000000, });
-  tx.wait();
+
+  // Not working
+  // const tx = await pool.mint(address, tickLower, tickUpper, 1, [], { gasLimit: 1000000, });
+  // tx.wait();
 }
 
 async function main() {
