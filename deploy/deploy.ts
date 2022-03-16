@@ -1,7 +1,8 @@
 import { constants } from "ethers";
 import { ethers, network } from "hardhat";
-import { OptimizerStrategy, PopsicleV3Optimizer } from "../typechain";
-import UniswapV3FactoryArtifact from "@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json"
+import { OptimizerStrategy, PopsicleV3Optimizer, UniswapV3Pool } from "../typechain";
+import UniswapV3FactoryArtifact from "@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json";
+import UniswapV3PoolArtifact from "@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json";
 
 const OPTIMIZER_STRATEGY_PATH = "contracts/popsicle-v3-optimizer/OptimizerStrategy.sol:OptimizerStrategy";
 const POPSICLE_V3_OPTIMIZER_PATH = "contracts/popsicle-v3-optimizer/PopsicleV3Optimizer.sol:PopsicleV3Optimizer";
@@ -41,6 +42,32 @@ function getWETHAddress(networkName: string): string {
   }
 }
 
+function getTickFloor(tick: number, tickSpacing: number) {
+  let compressed = Math.floor(tick / tickSpacing);
+  if (tick < 0 && tick % tickSpacing != 0) {
+    compressed--;
+  }
+  return compressed * tickSpacing;
+}
+
+function getTickRangeMultiplier(tick: number, tickSpacing: number) {
+  // based on https://github.com/Popsicle-Finance/PopsicleV3Optimizer/blob/c94a08c47a4d272a60a5924a6796bd0236567657/contracts/popsicle-v3-optimizer/PopsicleV3Optimizer.sol#L178
+
+  const ABS_MAX_TICK = 887272;
+  const tickFloor = getTickFloor(tick, tickSpacing);
+
+  // tickFloor - tickRangeMultiplier * tickSpacing >= -ABS_MAX_TICK;
+  const tickRangeMultiplier1 = Math.floor((tickFloor + ABS_MAX_TICK) / tickSpacing);
+
+  // tickFloor + tickRangeMultiplier * tickSpacing <= ABS_MAX_TICK;
+  const tickRangeMultiplier2 = Math.floor((ABS_MAX_TICK - tickFloor) / tickSpacing);
+
+  const tickRangeMultiplier = Math.min(tickRangeMultiplier1, tickRangeMultiplier2);
+
+  // decrease a little since uniswap pool state can change between this calculation and popsiclev3optimizer deploy transaction is mined
+  return Math.floor(tickRangeMultiplier * 0.95);
+}
+
 async function createUniswapPool(token0Address: string, token1Address: string, fee: number) {
   const uniswapFactory = await ethers.getContractAt(
     UniswapV3FactoryArtifact.abi,
@@ -57,7 +84,7 @@ async function createUniswapPool(token0Address: string, token1Address: string, f
       },
     );
 
-    await createUniswapPoolTransaction.wait(2);
+    await createUniswapPoolTransaction.wait();
   } catch {
     // transaction fails if pool already exists
     // TODO: open a PR in Uniswap/v3-core to properly set fail codes
@@ -67,7 +94,6 @@ async function createUniswapPool(token0Address: string, token1Address: string, f
   if (ethers.BigNumber.from(poolAddress).eq(ethers.BigNumber.from(0))) {
     throw new Error("poolAddress is 0");
   }
-
   console.log(`poolAddress=${poolAddress}`)
 
   const pool = await ethers.getContractAt(
@@ -75,24 +101,29 @@ async function createUniswapPool(token0Address: string, token1Address: string, f
     poolAddress,
   ) as UniswapV3Pool;
   const slot0 = await pool.slot0();
+  console.log(`pool.slot0=${JSON.stringify(slot0)}`);
   const tickSpacing = await pool.tickSpacing();
   console.log(`pool.tickSpacing=${tickSpacing}`);
-  console.log(`pool.slot0=${JSON.stringify(slot0)}`);
+  const tickRangeMultiplier = getTickRangeMultiplier(slot0.tick, tickSpacing);
+  console.log(`tickRangeMultiplier=${tickRangeMultiplier}`)
 
-  return poolAddress;
+  return {
+    poolAddress,
+    tickRangeMultiplier,
+  };
 }
 
 async function deployPopsicle(token0Address: string, token1Address: string, fee: number) {
-  const poolAddress = await createUniswapPool(token0Address, token1Address, fee);
+  const { poolAddress, tickRangeMultiplier } = await createUniswapPool(token0Address, token1Address, fee);
 
   const strategyFactory = await ethers.getContractFactory(OPTIMIZER_STRATEGY_PATH);
-  const strategy = await strategyFactory.deploy(100, 40, 16, 2000, constants.MaxUint256) as OptimizerStrategy;
+  const strategy = await strategyFactory.deploy(100, 40, tickRangeMultiplier, 2000, constants.MaxUint256) as OptimizerStrategy;
   console.log(`strategy.address=${strategy.address}`);
 
   const optimizerFactory = await ethers.getContractFactory(POPSICLE_V3_OPTIMIZER_PATH);
   const optimizerContract = (await optimizerFactory.deploy(poolAddress, strategy.address)) as PopsicleV3Optimizer;
   const initTransaction = await optimizerContract.init({ gasLimit: 1000000 });
-  await initTransaction.wait(2);
+  await initTransaction.wait();
   console.log(`optimizerContract.address=${optimizerContract.address}`)
 }
 
